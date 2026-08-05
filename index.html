@@ -8,7 +8,12 @@
   <title>리턴마켓 리스트</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b7771'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='serif' font-size='22' fill='white'%3ER%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
-  <style>.load-more-button{display:block;margin:28px auto 0;padding:13px 28px;border:1px solid var(--teal);border-radius:4px;background:transparent;color:var(--teal);font-weight:800}.load-more-button:hover{background:#eaf6f2}.load-more-button[hidden]{display:none}</style>
+  <style>
+    .load-more-button{display:block;margin:28px auto 0;padding:13px 28px;border:1px solid var(--teal);border-radius:4px;background:transparent;color:var(--teal);font-weight:800}.load-more-button:hover{background:#eaf6f2}.load-more-button[hidden]{display:none}
+    .metrics{padding-top:32px}.catalog-section{padding-top:38px}.category-bar{display:flex;gap:8px;overflow-x:auto;padding:4px 0 18px;margin-bottom:12px;scrollbar-width:thin}.category-tab{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);padding:10px 16px;font-size:14px;font-weight:800}.category-tab span{margin-left:5px;font-size:11px;font-weight:700;opacity:.72}.category-tab:hover{border-color:var(--teal);color:var(--teal)}.category-tab.active{border-color:var(--teal);background:var(--teal);color:#fff}.filters{grid-template-columns:minmax(260px,1fr) 150px auto 145px}.note:empty{display:none}
+    @media(max-width:960px){.filters{grid-template-columns:minmax(220px,1fr) 140px auto 145px}}
+    @media(max-width:680px){.metrics{padding-top:22px}.catalog-section{padding-top:34px}.category-bar{margin-left:-18px;margin-right:-18px;padding-left:18px;padding-right:18px}.category-tab{padding:9px 14px}.filters{grid-template-columns:1fr 1fr}.search-field{grid-column:1/-1}}
+  </style>
 </head>
 <body>
   <header class="site-header">
@@ -16,30 +21,13 @@
       <span class="brand-mark" aria-hidden="true">R</span>
       <span>리턴마켓 리스트</span>
     </a>
-    <nav aria-label="주요 메뉴">
-      <a href="#catalog">상품 목록</a>
-      <a href="#capture">링크 보관</a>
-    </nav>
+    <nav aria-label="주요 메뉴"><a href="#catalog">상품 목록</a></nav>
     <button class="icon-button" id="exportButton" type="button" title="CSV 내보내기" aria-label="CSV 내보내기">
       <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
     </button>
   </header>
 
   <main id="top">
-    <section class="intro" aria-labelledby="pageTitle">
-      <div>
-        <p class="eyebrow">RETURN · REFURB · OPEN BOX</p>
-        <h1 id="pageTitle">흩어지는 반품 특가를<br>내 리스트에 남긴다.</h1>
-        <p class="intro-copy">공식 기획전이 사라져도, 찾은 상품 링크·가격·상태는 이 브라우저에 남습니다. 구매 전에는 반드시 판매 페이지의 현재 가격과 상태를 다시 확인하세요.</p>
-      </div>
-      <aside class="source-card" aria-label="공식 출처">
-        <p class="source-label">공식 출처 보관</p>
-        <h2>Apple 반품상품 SALE 전체</h2>
-        <p>아이폰·아이패드·맥·애플워치·에어팟·액세서리 6개 공식 기획전을 저장했습니다.</p>
-        <a class="source-link" href="https://pages.coupang.com/p/163488?sourceType=oms_share" target="_blank" rel="noreferrer">기획전 열기 <span aria-hidden="true">↗</span></a>
-      </aside>
-    </section>
-
     <section class="metrics" aria-label="목록 요약">
       <div><strong id="totalCount">0</strong><span>보관한 상품</span></div>
       <div><strong id="availableCount">0</strong><span>확인 가능</span></div>
@@ -59,15 +47,14 @@
         </button>
       </div>
 
+      <div class="category-bar" id="categoryBar" aria-label="상품 카테고리"></div>
+      <input id="categoryFilter" type="hidden" value="all">
+
       <div class="filters" role="search">
         <label class="search-field">
           <span class="sr-only">상품 검색</span>
           <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
           <input id="searchInput" type="search" placeholder="상품명, 모델명, 메모 검색">
-        </label>
-        <label>
-          <span class="sr-only">분류</span>
-          <select id="categoryFilter"><option value="all">전체 분류</option></select>
         </label>
         <label>
           <span class="sr-only">상태</span>

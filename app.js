@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = 'return-market-catalog-v1';
   const SEEDED_KEY = 'return-market-seeded-version';
-  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v7';
+  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v8';
   const CATALOG_VERSION = 'coupang-apple-return-market-2026-08-05-v3';
   const sourceUrl = 'https://pages.coupang.com/p/163488?sourceType=oms_share';
   const DEFAULT_PRODUCTS = Array.isArray(window.RETURN_MARKET_DEFAULT_PRODUCTS) ? window.RETURN_MARKET_DEFAULT_PRODUCTS : [];
@@ -21,6 +21,12 @@
     if (/ipad|아이패드|패드|스탠다드 글래스/.test(text)) return '아이패드';
     if (/macbook|맥북|맥미니|맥 미니|맥 네오/.test(text)) return '맥';
     return '액세서리';
+  }
+  function cleanProductNote(note) {
+    return String(note || '')
+      .replace(/DCInside 댓글 제보 링크\.\s*구매 전 최종 상품 페이지와 현재 가격을 확인하세요\.?/g, '')
+      .split(/\s+(?:제보 )?원문 링크:/)[0]
+      .trim();
   }
   let products = loadProducts();
   if (localStorage.getItem(SEEDED_KEY) !== CATALOG_VERSION) {
@@ -50,6 +56,7 @@
     products = products.filter((product) => !legacyGenericNames.has(product.name));
     products.forEach((product) => {
       if (String(product.category).startsWith('댓글 제보')) product.category = productCategory(product.name, product.category);
+      product.note = cleanProductNote(product.note);
     });
     const normalizedUserLinks = USER_LINKS.map((entry, index) => {
       const report = Array.isArray(entry) ? { name: entry[0], url: entry[1] } : entry;
@@ -60,17 +67,8 @@
         sourceUrls: Array.isArray(report.sourceUrls) ? report.sourceUrls : []
       };
     });
-    normalizedUserLinks.filter((report) => officialProductIds.has(report.productId) && report.sourceUrls.length).forEach((report) => {
-      const official = products.find((product) => report.vendorItemId && product.url.includes(`vendorItemId=${report.vendorItemId}`))
-        || products.find((product) => product.url.includes(`/vp/products/${report.productId}`));
-      if (!official) return;
-      const sourceNote = `제보 원문 링크: ${report.sourceUrls.join(' | ')}`;
-      if (!official.note.includes(sourceNote)) official.note = `${official.note} ${sourceNote}`;
-    });
     const existingUrls = new Set(products.map((product) => product.url));
     const reports = normalizedUserLinks.map((report) => {
-      const sourceUrls = report.sourceUrls;
-      const sourceNote = sourceUrls.length ? ` 원문 링크: ${sourceUrls.join(' | ')}` : '';
       return {
         id: report.id,
         name: report.name,
@@ -80,12 +78,13 @@
         originalPrice: Number(report.originalPrice) || 0,
         url: report.url,
         imageUrl: report.imageUrl || '',
-        note: `${report.note || 'DCInside 댓글 제보 링크. 구매 전 최종 상품 페이지와 현재 가격을 확인하세요.'}${sourceNote}`,
+        note: cleanProductNote(report.note),
         favorite: false,
         updatedAt: report.updatedAt || '2026-08-05T13:00:00.000Z',
         productId: report.productId,
         itemId: report.itemId || '',
-        vendorItemId: report.vendorItemId || ''
+        vendorItemId: report.vendorItemId || '',
+        sourceUrls: report.sourceUrls
       };
     }).filter((report) => report.name && report.url && !existingUrls.has(report.url) && !officialProductIds.has(report.productId));
     products.push(...reports);
@@ -112,10 +111,11 @@
   function validUrl(value) { try { const url = new URL(value); return url.protocol === 'https:' || url.protocol === 'http:'; } catch { return false; } }
 
   function populateCategories() {
-    const chosen = $('#categoryFilter').value;
-    const categories = [...new Set(products.map((product) => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
-    $('#categoryFilter').innerHTML = `<option value="all">전체 분류</option>${categories.map((category) => `<option value="${escape(category)}">${escape(category)}</option>`).join('')}`;
-    $('#categoryFilter').value = categories.includes(chosen) ? chosen : 'all';
+    const chosen = $('#categoryFilter').value || 'all';
+    const preferred = ['아이폰', '아이패드', '맥', '애플워치', '에어팟', '액세서리'];
+    const categories = preferred.filter((category) => products.some((product) => product.category === category));
+    const options = [{ value: 'all', label: '전체', count: products.length }, ...categories.map((category) => ({ value: category, label: category, count: products.filter((product) => product.category === category).length }))];
+    $('#categoryBar').innerHTML = options.map((option) => `<button type="button" class="category-tab${chosen === option.value ? ' active' : ''}" data-category="${escape(option.value)}" aria-pressed="${chosen === option.value}">${escape(option.label)} <span>${currency.format(option.count)}</span></button>`).join('');
   }
 
   function visibleProducts() {
@@ -151,7 +151,8 @@
       fragment.querySelector('.category').textContent = product.category || '미분류';
       const status = fragment.querySelector('.status'); status.textContent = statusLabel(product.status); status.classList.add(product.status);
       fragment.querySelector('.name').textContent = product.name;
-      fragment.querySelector('.note').textContent = product.note || '메모 없음';
+      const note = fragment.querySelector('.note');
+      if (product.note) note.textContent = product.note; else note.remove();
       fragment.querySelector('.sale-price').textContent = price(product.salePrice);
       const discountEl = fragment.querySelector('.discount'); const rate = discount(product); discountEl.textContent = rate ? `${rate}% OFF` : '';
       fragment.querySelector('.original-price').textContent = Number(product.originalPrice) ? `정가 ${price(product.originalPrice)}` : '';
@@ -207,7 +208,14 @@
     if (index >= 0) product.favorite = products[index].favorite, products[index] = product; else products.unshift(product);
     saveProducts(); closeDialog(); render();
   });
-  ['searchInput', 'categoryFilter', 'statusFilter', 'sortSelect'].forEach((name) => $("#" + name).addEventListener(name === 'searchInput' ? 'input' : 'change', () => { visibleLimit = 80; render(); }));
+  ['searchInput', 'statusFilter', 'sortSelect'].forEach((name) => $("#" + name).addEventListener(name === 'searchInput' ? 'input' : 'change', () => { visibleLimit = 80; render(); }));
+  $('#categoryBar').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-category]');
+    if (!button) return;
+    $('#categoryFilter').value = button.dataset.category;
+    visibleLimit = 80;
+    render();
+  });
   $('#favoritesOnly').addEventListener('click', (event) => { favoritesOnly = !favoritesOnly; visibleLimit = 80; event.currentTarget.classList.toggle('active', favoritesOnly); event.currentTarget.setAttribute('aria-pressed', String(favoritesOnly)); render(); });
   $('#loadMoreButton').addEventListener('click', () => { visibleLimit += 80; render(); });
   $('#exportButton').addEventListener('click', exportCsv);
