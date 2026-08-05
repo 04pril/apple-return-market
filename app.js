@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = 'return-market-catalog-v1';
   const SEEDED_KEY = 'return-market-seeded-version';
-  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v16';
+  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v17';
   const CATALOG_VERSION = 'coupang-apple-return-market-2026-08-05-v3';
   const sourceUrl = 'https://pages.coupang.com/p/163488?sourceType=oms_share';
   const DEFAULT_PRODUCTS = Array.isArray(window.RETURN_MARKET_DEFAULT_PRODUCTS) ? window.RETURN_MARKET_DEFAULT_PRODUCTS : [];
@@ -28,7 +28,8 @@
     '9079380305': { name: 'Apple 아이폰 Air 자급제 스카이 블루 256GB', status: 'sold', imageUrl: 'assets/products/iphone-air-sky-blue-256.png', note: '스카이 블루 × 256GB. 상품 페이지에서 품절 확인.' },
     '9119572717': { name: 'Apple 아이폰 Air 자급제 클라우드 화이트 256GB', status: 'available', salePrice: 1128340, originalPrice: 1359450, imageUrl: 'assets/products/iphone-air-cloud-white-256.png', note: '클라우드 화이트 × 256GB. 반품-최상(사용감 없음), 확인 당시 표시가 1,128,340원.' },
     '9205344492': { name: 'Apple 아이폰 17 자급제 화이트 256GB', status: 'sold', imageUrl: 'assets/products/iphone-17-white-256.png', note: '화이트 × 256GB. 반품-최상 링크, 확인 당시 해당 선택 옵션 품절.' },
-    '9226094651': { name: 'Apple 아이폰 17 자급제 블랙 256GB', status: 'sold', imageUrl: 'assets/products/iphone-17-black-256.png', note: '블랙 × 256GB. 상품 페이지에서 품절 확인.' }
+    '9226094651': { name: 'Apple 아이폰 17 자급제 블랙 256GB', status: 'sold', imageUrl: 'assets/products/iphone-17-black-256.png', note: '블랙 × 256GB. 상품 페이지에서 품절 확인.' },
+    '8404740360': { name: 'Apple 정품 2024 애플워치 밀레니즈 루프 내추럴 티타늄 Apple Watch용 1개', status: 'available', salePrice: 81000, originalPrice: 135000, imageUrl: 'assets/products/apple-watch-milanese-natural-1.png', note: '내추럴 티타늄 × Apple Watch × 1개. 반품-중(사용감 보통), 확인 당시 81,000원.' }
   };
   function productCategory(name, category = '') {
     const text = String(name).toLowerCase();
@@ -138,7 +139,7 @@
       '단축 링크 · ehlTgLCP9M'
     ]);
     const oldReportFavorites = new Map(products.filter((product) => /^(dcinside|resolved)-/.test(product.id)).map((product) => [product.url, Boolean(product.favorite)]));
-    products = products.filter((product) => !legacyGenericNames.has(product.name) && !/^(dcinside|resolved)-/.test(product.id));
+    products = products.filter((product) => !legacyGenericNames.has(product.name) && product.id !== 'coupang-81642176961' && !/^(dcinside|resolved)-/.test(product.id));
     products.forEach((product) => {
       product.category = productCategory(product.name, product.category);
       product.note = cleanProductNote(product.note);
