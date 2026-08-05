@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = 'return-market-catalog-v1';
   const SEEDED_KEY = 'return-market-seeded-version';
-  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v9';
+  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v11';
   const CATALOG_VERSION = 'coupang-apple-return-market-2026-08-05-v3';
   const sourceUrl = 'https://pages.coupang.com/p/163488?sourceType=oms_share';
   const DEFAULT_PRODUCTS = Array.isArray(window.RETURN_MARKET_DEFAULT_PRODUCTS) ? window.RETURN_MARKET_DEFAULT_PRODUCTS : [];
@@ -27,16 +27,36 @@
     '9205344492': { status: 'sold', note: '반품-최상 링크. 확인 당시 해당 선택 옵션 재고 없음.' }
   };
   function productCategory(name, category = '') {
-    const current = String(category).replace(/^댓글 제보(?:\s*·\s*)?/, '').trim();
-    if (['아이폰', '아이패드', '맥', '애플워치', '에어팟', '액세서리'].includes(current)) return current;
     const text = String(name).toLowerCase();
-    if (/매직|magic keyboard|trackpad|트랙패드|펜슬|pencil|폴리오|케이스|케이블|밀레니즈/.test(text)) return '액세서리';
+    if (/(?:beats|비츠)/.test(text) && !/(?:case|케이스|커버)/.test(text) && /(?:studio|버즈|buds|solo|fit|flex|헤드|headphone|이어폰|스피커)/.test(text)) return '비츠';
     if (/airpods|에어팟/.test(text)) return '에어팟';
     if (/watch|워치/.test(text)) return '애플워치';
     if (/iphone|아이폰/.test(text)) return '아이폰';
     if (/ipad|아이패드|패드|스탠다드 글래스/.test(text)) return '아이패드';
     if (/macbook|맥북|맥미니|맥 미니|맥 네오/.test(text)) return '맥';
+    if (/매직|magic keyboard|trackpad|트랙패드|펜슬|pencil|폴리오|케이스|케이블|밀레니즈/.test(text)) return '액세서리';
+    const current = String(category).replace(/^댓글 제보(?:\s*·\s*)?/, '').trim();
+    if (['아이폰', '아이패드', '맥', '애플워치', '에어팟', '비츠', '액세서리'].includes(current)) return current;
     return '액세서리';
+  }
+  function modelSortScore(product) {
+    const name = String(product.name || '').toLowerCase();
+    const category = product.category;
+    const year = Number(name.match(/20(2[0-9])/i)?.[0] || 0);
+    if (category === '아이폰') {
+      if (/air/.test(name) && !/airpods/.test(name)) return 170.5;
+      const generation = Number(name.match(/아이폰\s*(1[1-7])|iphone\s*(1[1-7])/i)?.[1] || name.match(/\b(1[1-7])\s*(?:pro|promax|프로나|프로맥스|e|[\uAC00-\uD7A3])/i)?.[1] || 0);
+      if (/se/.test(name)) return 50 + Number(name.match(/se\s*([23])/i)?.[1] || 0);
+      return generation * 10;
+    }
+    if (category === '애플워치') {
+      if (/ultra/.test(name)) return 120 + Number(name.match(/ultra\s*([12])/i)?.[1] || 1);
+      if (/se/.test(name)) return 80 + Number(name.match(/se\s*([23])/i)?.[1] || 1);
+      return Number(name.match(/(?:watch|워치)\s*(\d{1,2})/i)?.[1] || 0) * 10;
+    }
+    const chip = Number(name.match(/m\s*([1-5])/i)?.[1] || 0);
+    const numericModel = Number(name.match(/(?:아이패드|ipad|맥북|macbook|에어팟|airpods)\s*(\d{1,2})/i)?.[1] || 0);
+    return Math.max(chip * 100, year, numericModel * 10);
   }
   function cleanProductNote(note) {
     return String(note || '')
@@ -88,7 +108,7 @@
     const oldReportFavorites = new Map(products.filter((product) => /^(dcinside|resolved)-/.test(product.id)).map((product) => [product.url, Boolean(product.favorite)]));
     products = products.filter((product) => !legacyGenericNames.has(product.name) && !/^(dcinside|resolved)-/.test(product.id));
     products.forEach((product) => {
-      if (String(product.category).startsWith('댓글 제보')) product.category = productCategory(product.name, product.category);
+      product.category = productCategory(product.name, product.category);
       product.note = cleanProductNote(product.note);
     });
     const normalizedUserLinks = USER_LINKS.map((entry, index) => {
@@ -151,7 +171,7 @@
 
   function populateCategories() {
     const chosen = $('#categoryFilter').value || 'all';
-    const preferred = ['아이폰', '아이패드', '맥', '애플워치', '에어팟', '액세서리'];
+    const preferred = ['아이폰', '아이패드', '맥', '애플워치', '에어팟', '비츠', '액세서리'];
     const categories = preferred.filter((category) => products.some((product) => product.category === category));
     const options = [{ value: 'all', label: '전체', count: products.length }, ...categories.map((category) => ({ value: category, label: category, count: products.filter((product) => product.category === category).length }))];
     $('#categoryBar').innerHTML = options.map((option) => `<button type="button" class="category-tab${chosen === option.value ? ' active' : ''}" data-category="${escape(option.value)}" aria-pressed="${chosen === option.value}">${escape(option.label)} <span>${currency.format(option.count)}</span></button>`).join('');
@@ -167,6 +187,7 @@
       return (!query || text.includes(query)) && (category === 'all' || product.category === category) && (status === 'all' || product.status === status) && (!favoritesOnly || product.favorite);
     });
     return filtered.sort((a, b) => {
+      if (sort === 'model') return modelSortScore(b) - modelSortScore(a) || a.name.localeCompare(b.name, 'ko');
       if (sort === 'price-low') return (Number(a.salePrice) || Infinity) - (Number(b.salePrice) || Infinity);
       if (sort === 'price-high') return (Number(b.salePrice) || 0) - (Number(a.salePrice) || 0);
       if (sort === 'discount') return discount(b) - discount(a);
