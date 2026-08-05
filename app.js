@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = 'return-market-catalog-v1';
   const SEEDED_KEY = 'return-market-seeded-version';
-  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v13';
+  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v15';
   const CATALOG_VERSION = 'coupang-apple-return-market-2026-08-05-v3';
   const sourceUrl = 'https://pages.coupang.com/p/163488?sourceType=oms_share';
   const DEFAULT_PRODUCTS = Array.isArray(window.RETURN_MARKET_DEFAULT_PRODUCTS) ? window.RETURN_MARKET_DEFAULT_PRODUCTS : [];
@@ -24,7 +24,11 @@
   };
   const USER_LINK_OVERRIDES = {
     '6530411186': { salePrice: 77000, status: 'available', note: '반품-중, 확인 당시 쿠폰가 77,000원·재고 1개.' },
-    '9205344492': { status: 'sold', note: '반품-최상 링크. 확인 당시 해당 선택 옵션 재고 없음.' }
+    '9079344509': { name: 'Apple 아이폰 Air 자급제 스페이스 블랙 256GB', status: 'sold', imageUrl: 'assets/products/iphone-air-space-black-256.png', note: '스페이스 블랙 × 256GB. 상품 페이지에서 품절 확인.' },
+    '9079380305': { name: 'Apple 아이폰 Air 자급제 스카이 블루 256GB', status: 'sold', imageUrl: 'assets/products/iphone-air-sky-blue-256.png', note: '스카이 블루 × 256GB. 상품 페이지에서 품절 확인.' },
+    '9119572717': { name: 'Apple 아이폰 Air 자급제 클라우드 화이트 256GB', status: 'available', salePrice: 1128340, originalPrice: 1359450, imageUrl: 'assets/products/iphone-air-cloud-white-256.png', note: '클라우드 화이트 × 256GB. 반품-최상(사용감 없음), 확인 당시 표시가 1,128,340원.' },
+    '9205344492': { name: 'Apple 아이폰 17 자급제 화이트 256GB', status: 'sold', imageUrl: 'assets/products/iphone-17-white-256.png', note: '화이트 × 256GB. 반품-최상 링크, 확인 당시 해당 선택 옵션 품절.' },
+    '9226094651': { name: 'Apple 아이폰 17 자급제 블랙 256GB', status: 'sold', imageUrl: 'assets/products/iphone-17-black-256.png', note: '블랙 × 256GB. 상품 페이지에서 품절 확인.' }
   };
   function productCategory(name, category = '') {
     const text = String(name).toLowerCase();
@@ -78,6 +82,17 @@
     return RESOLVED_SHORT_LINKS[shortSlug(url)] || ['', '', ''];
   }
   function fallbackThumbnail(product) {
+    const phoneName = String(product.name || '').toLowerCase();
+    if (product.category === '아이폰' && /(air|아이폰 17)/.test(phoneName)) {
+      const isAir = /air/.test(phoneName);
+      const isBlack = /블랙|black/.test(phoneName);
+      const isBlue = /블루|blue/.test(phoneName);
+      const body = isBlack ? '#202329' : isBlue ? '#dcebf5' : '#f4f5f2';
+      const edge = isBlack ? '#505762' : isBlue ? '#9eb7c5' : '#bbc2c1';
+      const screen = isBlack ? '#11151a' : isBlue ? '#a9cfe7' : '#e8f0ef';
+      const label = isAir ? 'iPhone Air' : 'iPhone 17';
+      return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 400"><rect width="460" height="400" fill="#f3f5f1"/><ellipse cx="230" cy="346" rx="128" ry="18" fill="#cdd5d2" opacity=".6"/><g transform="translate(143 28) rotate(-9 88 170)"><rect x="0" y="0" width="176" height="338" rx="30" fill="${edge}"/><rect x="8" y="8" width="160" height="322" rx="25" fill="${body}"/><rect x="23" y="25" width="130" height="286" rx="19" fill="${screen}"/><circle cx="48" cy="55" r="20" fill="#17191d"/><circle cx="48" cy="55" r="10" fill="#5f6d76"/><circle cx="82" cy="55" r="20" fill="#17191d"/><circle cx="82" cy="55" r="10" fill="#5f6d76"/><path d="M35 225c30-32 67-32 98 0" stroke="#fff" stroke-opacity=".38" stroke-width="4" fill="none"/></g><text x="28" y="45" fill="#0b7771" font-family="Arial,sans-serif" font-size="16" font-weight="700" letter-spacing="2">${product.category}</text><text x="28" y="366" fill="#12272b" font-family="Arial,sans-serif" font-size="19" font-weight="700">${label}</text></svg>`)}`;
+    }
     const colors = { 아이폰: ['#20252c', '#a9c5d8'], 아이패드: ['#2b2d34', '#c4d6d2'], 맥: ['#49515a', '#d8dce0'], 애플워치: ['#433d3a', '#d8b9a8'], 에어팟: ['#e8e9e5', '#9da7a3'], 액세서리: ['#154c4a', '#c7e3d9'] };
     const [background, accent] = colors[product.category] || colors.액세서리;
     const label = String(product.name || product.category || '상품').replace(/&/g, '&amp;').replace(/[<>]/g, '').slice(0, 24);
@@ -134,13 +149,13 @@
       const override = USER_LINK_OVERRIDES[report.productId] || {};
       return {
         id: report.id,
-        name: report.name,
-        category: productCategory(report.name, report.category),
+        name: override.name || report.name,
+        category: productCategory(override.name || report.name, report.category),
         status: override.status || report.status || exactOfficial?.status || 'watching',
         salePrice: Number(report.salePrice) || Number(override.salePrice) || Number(exactOfficial?.salePrice) || 0,
         originalPrice: Number(report.originalPrice) || Number(exactOfficial?.originalPrice) || 0,
         url: report.url.match(/\/vp\/products\//) ? report.url : `https://www.coupang.com/vp/products/${report.productId}?itemId=${report.itemId}&vendorItemId=${report.vendorItemId}&landingType=USED_DETAIL`,
-        imageUrl: report.imageUrl || exactOfficial?.imageUrl || sameProduct?.imageUrl || '',
+        imageUrl: override.imageUrl || report.imageUrl || exactOfficial?.imageUrl || sameProduct?.imageUrl || '',
         note: cleanProductNote(override.note || report.note),
         favorite: oldReportFavorites.get(report.url) || false,
         updatedAt: report.updatedAt || '2026-08-05T13:00:00.000Z',
@@ -171,7 +186,7 @@
   function dateLabel(value) { if (!value) return '-'; return new Intl.DateTimeFormat('ko-KR', { month: 'short', day: 'numeric' }).format(new Date(value)); }
   function price(value) { return Number(value) > 0 ? `${currency.format(Number(value))}원` : '상품 페이지 확인'; }
   function discount(product) { const original = Number(product.originalPrice), sale = Number(product.salePrice); return original > sale && sale > 0 ? Math.round((1 - sale / original) * 100) : 0; }
-  function validUrl(value) { try { const url = new URL(value); return url.protocol === 'https:' || url.protocol === 'http:'; } catch { return false; } }
+  function validUrl(value) { try { const url = new URL(value, location.href); return ['https:', 'http:', 'data:'].includes(url.protocol); } catch { return false; } }
 
   function populateCategories() {
     const chosen = $('#categoryFilter').value || 'all';
