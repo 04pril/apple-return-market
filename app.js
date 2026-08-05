@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = 'return-market-catalog-v1';
   const SEEDED_KEY = 'return-market-seeded-version';
-  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v11';
+  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v13';
   const CATALOG_VERSION = 'coupang-apple-return-market-2026-08-05-v3';
   const sourceUrl = 'https://pages.coupang.com/p/163488?sourceType=oms_share';
   const DEFAULT_PRODUCTS = Array.isArray(window.RETURN_MARKET_DEFAULT_PRODUCTS) ? window.RETURN_MARKET_DEFAULT_PRODUCTS : [];
@@ -28,7 +28,11 @@
   };
   function productCategory(name, category = '') {
     const text = String(name).toLowerCase();
-    if (/(?:beats|비츠)/.test(text) && !/(?:case|케이스|커버)/.test(text) && /(?:studio|버즈|buds|solo|fit|flex|헤드|headphone|이어폰|스피커)/.test(text)) return '비츠';
+    const isWatchBody = /(?:apple watch|애플워치|워치)/.test(text) && /알루미늄\s*케이스/.test(text);
+    const accessoryText = text.replace(/알루미늄\s*케이스/g, '');
+    const isAccessory = !isWatchBody && /(?:case|케이스|커버|폴리오|키보드|keyboard|트랙패드|trackpad|펜슬|pencil|케이블|cable|충전기|어댑터|adapter|스트랩|밴드|밀레니즈|링크 브레이슬릿|실리콘|가죽|맥세이프|magsafe|보호필름|필름)/.test(accessoryText);
+    if (isAccessory) return '액세서리';
+    if (/(?:beats|비츠)/.test(text) && /(?:studio|버즈|buds|solo|fit|flex|헤드|headphone|이어폰|스피커)/.test(text)) return '비츠';
     if (/airpods|에어팟/.test(text)) return '에어팟';
     if (/watch|워치/.test(text)) return '애플워치';
     if (/iphone|아이폰/.test(text)) return '아이폰';
