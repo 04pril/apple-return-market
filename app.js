@@ -3,13 +3,29 @@
 
   const STORAGE_KEY = 'return-market-catalog-v1';
   const SEEDED_KEY = 'return-market-seeded-version';
-  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v8';
+  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v9';
   const CATALOG_VERSION = 'coupang-apple-return-market-2026-08-05-v3';
   const sourceUrl = 'https://pages.coupang.com/p/163488?sourceType=oms_share';
   const DEFAULT_PRODUCTS = Array.isArray(window.RETURN_MARKET_DEFAULT_PRODUCTS) ? window.RETURN_MARKET_DEFAULT_PRODUCTS : [];
   const USER_LINKS = Array.isArray(window.RETURN_MARKET_USER_LINKS) ? window.RETURN_MARKET_USER_LINKS : [];
   const $ = (selector) => document.querySelector(selector);
   const currency = new Intl.NumberFormat('ko-KR');
+  const RESOLVED_SHORT_LINKS = {
+    e7UmsJ4oJE: ['6530455504', '14502226168', '81745237430'], e6I2Lj2bQq: ['8589676700', '24904459173', '91914627265'], e6MxMleVhc: ['8490155564', '24573333474', '91623049416'],
+    eXiOQtktPM: ['8230502704', '23687001399', '91578212064'], e1GIEvlGWO: ['8622853535', '25016676576', '92277959885'], e5BGzqzibk: ['9203536772', '27176834791', '94445198726'],
+    eWyL9t3hKu: ['8127283202', '23073450276', '90567200761'], eWyN0cPO68: ['8186051977', '23410821866', '90443617130'], eWoqysXSBU: ['9079380305', '26671843923', '93649369328'],
+    eWosh2vwnQ: ['9119572717', '26824934981', '93829733531'], eWouos3frM: ['9079344509', '26671671646', '93643959458'], eWYshwqvvw: ['9076862955', '26661796693', '93733759075'],
+    eWYtDSHkei: ['9075132541', '26655949014', '93654801365'], eWx3wIkQPA: ['9477671691', '28215566938', '95214849134'], eWx4vr4xVs: ['9477674284', '28215575770', '95269619205'],
+    eWx6JnrGgK: ['9477669350', '28215559861', '95398136068'], eWx8dUXGqO: ['9522636394', '28389160656', '95340665133'], eWxScO2kGi: ['8356310374', '24145471959', '91164300544'],
+    eWxTeI1Ss8: ['9475137805', '28205871011', '95166061898'], eWxX7jarSK: ['8358123856', '24152225845', '91230283798'], eWx030Q7VI: ['8364671627', '24167168939', '91320150447'],
+    eWx2kbmgNg: ['8359784817', '24158547338', '91192400138'], eU98embDlR: ['8805710138', '25645695808', '93210761926'], eWxsKhWgkm: ['8545808853', '24744630891', '91753235787'],
+    eWxxWlUFem: ['8805710138', '25645695808', '93210761926'], eSLLh9g7Bk: ['9153924950', '26957796330', '93926803248'], eS8QLYeiLk: ['9442854317', '28086525456', '95042909822'],
+    eS8S454R76: ['9450934639', '28115213574', '95071116652'], eg7Zjk1ttc: ['8404710296', '24297237262', '91318990641'], eg87vCOKSO: ['8183985191', '23402937046', '90472256979']
+  };
+  const USER_LINK_OVERRIDES = {
+    '6530411186': { salePrice: 77000, status: 'available', note: '반품-중, 확인 당시 쿠폰가 77,000원·재고 1개.' },
+    '9205344492': { status: 'sold', note: '반품-최상 링크. 확인 당시 해당 선택 옵션 재고 없음.' }
+  };
   function productCategory(name, category = '') {
     const current = String(category).replace(/^댓글 제보(?:\s*·\s*)?/, '').trim();
     if (['아이폰', '아이패드', '맥', '애플워치', '에어팟', '액세서리'].includes(current)) return current;
@@ -27,6 +43,22 @@
       .replace(/DCInside 댓글 제보 링크\.\s*구매 전 최종 상품 페이지와 현재 가격을 확인하세요\.?/g, '')
       .split(/\s+(?:제보 )?원문 링크:/)[0]
       .trim();
+  }
+  function shortSlug(url) { return String(url || '').match(/\/a\/([A-Za-z0-9]+)/)?.[1] || ''; }
+  function resolvedLinkData(url) {
+    const direct = String(url || '').match(/\/vp\/products\/(\d+)(?:\?[^#]*)?/);
+    if (direct) {
+      const query = new URL(url).searchParams;
+      return [direct[1], query.get('itemId') || '', query.get('vendorItemId') || ''];
+    }
+    return RESOLVED_SHORT_LINKS[shortSlug(url)] || ['', '', ''];
+  }
+  function fallbackThumbnail(product) {
+    const colors = { 아이폰: ['#20252c', '#a9c5d8'], 아이패드: ['#2b2d34', '#c4d6d2'], 맥: ['#49515a', '#d8dce0'], 애플워치: ['#433d3a', '#d8b9a8'], 에어팟: ['#e8e9e5', '#9da7a3'], 액세서리: ['#154c4a', '#c7e3d9'] };
+    const [background, accent] = colors[product.category] || colors.액세서리;
+    const label = String(product.name || product.category || '상품').replace(/&/g, '&amp;').replace(/[<>]/g, '').slice(0, 24);
+    const category = String(product.category || '상품');
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 400"><rect width="460" height="400" fill="${background}"/><circle cx="380" cy="65" r="120" fill="${accent}" opacity=".24"/><path d="M0 330C130 255 250 380 460 270V400H0Z" fill="${accent}" opacity=".16"/><text x="30" y="54" fill="${accent}" font-family="Arial,sans-serif" font-size="16" font-weight="700" letter-spacing="2">${category}</text><text x="30" y="210" fill="#fff" font-family="Arial,sans-serif" font-size="27" font-weight="700">${label}</text><text x="30" y="350" fill="${accent}" font-family="Georgia,serif" font-size="15">RETURN MARKET</text></svg>`)}`;
   }
   let products = loadProducts();
   if (localStorage.getItem(SEEDED_KEY) !== CATALOG_VERSION) {
@@ -53,33 +85,40 @@
       '단축 링크 · emcg2NwG5Y',
       '단축 링크 · ehlTgLCP9M'
     ]);
-    products = products.filter((product) => !legacyGenericNames.has(product.name));
+    const oldReportFavorites = new Map(products.filter((product) => /^(dcinside|resolved)-/.test(product.id)).map((product) => [product.url, Boolean(product.favorite)]));
+    products = products.filter((product) => !legacyGenericNames.has(product.name) && !/^(dcinside|resolved)-/.test(product.id));
     products.forEach((product) => {
       if (String(product.category).startsWith('댓글 제보')) product.category = productCategory(product.name, product.category);
       product.note = cleanProductNote(product.note);
     });
     const normalizedUserLinks = USER_LINKS.map((entry, index) => {
       const report = Array.isArray(entry) ? { name: entry[0], url: entry[1] } : entry;
+      const [productId, itemId, vendorItemId] = resolvedLinkData(report.url);
       return {
         ...report,
         id: report.id || `dcinside-report-${index + 1}`,
-        productId: report.productId || report.url?.match(/\/vp\/products\/(\d+)/)?.[1] || '',
+        productId: report.productId || productId,
+        itemId: report.itemId || itemId,
+        vendorItemId: report.vendorItemId || vendorItemId,
         sourceUrls: Array.isArray(report.sourceUrls) ? report.sourceUrls : []
       };
     });
     const existingUrls = new Set(products.map((product) => product.url));
     const reports = normalizedUserLinks.map((report) => {
+      const exactOfficial = DEFAULT_PRODUCTS.find((product) => report.vendorItemId && product.url.includes(`vendorItemId=${report.vendorItemId}`));
+      const sameProduct = DEFAULT_PRODUCTS.find((product) => report.productId && product.url.includes(`/vp/products/${report.productId}`));
+      const override = USER_LINK_OVERRIDES[report.productId] || {};
       return {
         id: report.id,
         name: report.name,
         category: productCategory(report.name, report.category),
-        status: report.status || 'watching',
-        salePrice: Number(report.salePrice) || 0,
-        originalPrice: Number(report.originalPrice) || 0,
-        url: report.url,
-        imageUrl: report.imageUrl || '',
-        note: cleanProductNote(report.note),
-        favorite: false,
+        status: override.status || report.status || exactOfficial?.status || 'watching',
+        salePrice: Number(report.salePrice) || Number(override.salePrice) || Number(exactOfficial?.salePrice) || 0,
+        originalPrice: Number(report.originalPrice) || Number(exactOfficial?.originalPrice) || 0,
+        url: report.url.match(/\/vp\/products\//) ? report.url : `https://www.coupang.com/vp/products/${report.productId}?itemId=${report.itemId}&vendorItemId=${report.vendorItemId}&landingType=USED_DETAIL`,
+        imageUrl: report.imageUrl || exactOfficial?.imageUrl || sameProduct?.imageUrl || '',
+        note: cleanProductNote(override.note || report.note),
+        favorite: oldReportFavorites.get(report.url) || false,
         updatedAt: report.updatedAt || '2026-08-05T13:00:00.000Z',
         productId: report.productId,
         itemId: report.itemId || '',
@@ -106,7 +145,7 @@
   function escape(value) { const node = document.createElement('span'); node.textContent = value || ''; return node.innerHTML; }
   function statusLabel(status) { return ({ available: '확인 가능', watching: '가격 관찰', sold: '품절 / 종료' })[status] || '확인 필요'; }
   function dateLabel(value) { if (!value) return '-'; return new Intl.DateTimeFormat('ko-KR', { month: 'short', day: 'numeric' }).format(new Date(value)); }
-  function price(value) { return Number(value) > 0 ? `${currency.format(Number(value))}원` : '가격 미기록'; }
+  function price(value) { return Number(value) > 0 ? `${currency.format(Number(value))}원` : '상품 페이지 확인'; }
   function discount(product) { const original = Number(product.originalPrice), sale = Number(product.salePrice); return original > sale && sale > 0 ? Math.round((1 - sale / original) * 100) : 0; }
   function validUrl(value) { try { const url = new URL(value); return url.protocol === 'https:' || url.protocol === 'http:'; } catch { return false; } }
 
@@ -146,8 +185,8 @@
       const card = fragment.querySelector('.product-card');
       const image = fragment.querySelector('img');
       image.alt = product.name;
-      if (validUrl(product.imageUrl)) { image.src = product.imageUrl; image.onerror = () => image.remove(); }
-      else image.remove();
+      image.src = validUrl(product.imageUrl) ? product.imageUrl : fallbackThumbnail(product);
+      image.onerror = () => { image.onerror = null; image.src = fallbackThumbnail(product); };
       fragment.querySelector('.category').textContent = product.category || '미분류';
       const status = fragment.querySelector('.status'); status.textContent = statusLabel(product.status); status.classList.add(product.status);
       fragment.querySelector('.name').textContent = product.name;
