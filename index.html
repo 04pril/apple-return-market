@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="반품·리퍼·전시 상품 링크와 가격을 직접 보존하고 비교하는 개인용 마켓 리스트입니다.">
+  <meta name="theme-color" content="#102f3d">
+  <title>리턴마켓 리스트</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b7771'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='serif' font-size='22' fill='white'%3ER%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <style>.load-more-button{display:block;margin:28px auto 0;padding:13px 28px;border:1px solid var(--teal);border-radius:4px;background:transparent;color:var(--teal);font-weight:800}.load-more-button:hover{background:#eaf6f2}.load-more-button[hidden]{display:none}</style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="리턴마켓 리스트 처음으로">
+      <span class="brand-mark" aria-hidden="true">R</span>
+      <span>리턴마켓 리스트</span>
+    </a>
+    <nav aria-label="주요 메뉴">
+      <a href="#catalog">상품 목록</a>
+      <a href="#capture">링크 보관</a>
+    </nav>
+    <button class="icon-button" id="exportButton" type="button" title="CSV 내보내기" aria-label="CSV 내보내기">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+    </button>
+  </header>
+
+  <main id="top">
+    <section class="intro" aria-labelledby="pageTitle">
+      <div>
+        <p class="eyebrow">RETURN · REFURB · OPEN BOX</p>
+        <h1 id="pageTitle">흩어지는 반품 특가를<br>내 리스트에 남긴다.</h1>
+        <p class="intro-copy">공식 기획전이 사라져도, 찾은 상품 링크·가격·상태는 이 브라우저에 남습니다. 구매 전에는 반드시 판매 페이지의 현재 가격과 상태를 다시 확인하세요.</p>
+      </div>
+      <aside class="source-card" aria-label="공식 출처">
+        <p class="source-label">공식 출처 보관</p>
+        <h2>Apple 반품상품 SALE 전체</h2>
+        <p>아이폰·아이패드·맥·애플워치·에어팟·액세서리 6개 공식 기획전을 저장했습니다.</p>
+        <a class="source-link" href="https://pages.coupang.com/p/163488?sourceType=oms_share" target="_blank" rel="noreferrer">기획전 열기 <span aria-hidden="true">↗</span></a>
+      </aside>
+    </section>
+
+    <section class="metrics" aria-label="목록 요약">
+      <div><strong id="totalCount">0</strong><span>보관한 상품</span></div>
+      <div><strong id="availableCount">0</strong><span>확인 가능</span></div>
+      <div><strong id="savedCount">0</strong><span>찜 목록</span></div>
+      <div><strong id="lastUpdated">-</strong><span>최근 기록</span></div>
+    </section>
+
+    <section class="catalog-section" id="catalog" aria-labelledby="catalogTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">CATALOG</p>
+          <h2 id="catalogTitle">반품상품 목록</h2>
+        </div>
+        <button class="primary-button" id="addButton" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          상품 추가
+        </button>
+      </div>
+
+      <div class="filters" role="search">
+        <label class="search-field">
+          <span class="sr-only">상품 검색</span>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <input id="searchInput" type="search" placeholder="상품명, 모델명, 메모 검색">
+        </label>
+        <label>
+          <span class="sr-only">분류</span>
+          <select id="categoryFilter"><option value="all">전체 분류</option></select>
+        </label>
+        <label>
+          <span class="sr-only">상태</span>
+          <select id="statusFilter">
+            <option value="all">전체 상태</option>
+            <option value="available">확인 가능</option>
+            <option value="watching">가격 관찰</option>
+            <option value="sold">품절 / 종료</option>
+          </select>
+        </label>
+        <button class="filter-button" id="favoritesOnly" type="button" aria-pressed="false">찜만 보기</button>
+        <label>
+          <span class="sr-only">정렬</span>
+          <select id="sortSelect">
+            <option value="updated">최근 기록순</option>
+            <option value="price-low">낮은 가격순</option>
+            <option value="price-high">높은 가격순</option>
+            <option value="discount">할인율순</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="catalog-grid" id="catalogGrid" aria-live="polite"></div>
+      <button class="load-more-button" id="loadMoreButton" type="button" hidden>상품 더 보기</button>
+      <div class="empty-state" id="emptyState" hidden>
+        <h3>조건에 맞는 상품이 없습니다.</h3>
+        <p>필터를 지우거나 새 상품을 추가해 보세요.</p>
+      </div>
+    </section>
+
+    <section class="capture-section" id="capture" aria-labelledby="captureTitle">
+      <div>
+        <p class="eyebrow">CAPTURE WORKFLOW</p>
+        <h2 id="captureTitle">기획전이 사라지기 전에<br>링크를 보관하세요.</h2>
+      </div>
+      <div class="workflow">
+        <article><span>01</span><h3>상품 링크 복사</h3><p>공식 기획전이나 상품 상세에서 URL을 복사합니다.</p></article>
+        <article><span>02</span><h3>가격과 상태 기록</h3><p>할인가, 정가, 반품 상태를 함께 남깁니다.</p></article>
+        <article><span>03</span><h3>CSV 백업</h3><p>목록을 내려받아 다른 브라우저나 서버에 보관합니다.</p></article>
+      </div>
+      <div class="import-row">
+        <label class="import-button" for="importInput">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4m0 0 4 4m-4-4L8 8M5 19h14"/></svg>
+          CSV 불러오기
+        </label>
+        <input id="importInput" type="file" accept=".csv,text/csv" hidden>
+        <button class="text-button" id="resetButton" type="button">기본 목록 복원</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="productDialog" aria-labelledby="dialogTitle">
+    <form id="productForm" method="dialog">
+      <div class="dialog-header">
+        <div><p class="eyebrow">PRODUCT RECORD</p><h2 id="dialogTitle">상품 추가</h2></div>
+        <button class="icon-button" type="button" id="closeDialog" aria-label="닫기">×</button>
+      </div>
+      <input id="productId" type="hidden">
+      <div class="form-grid">
+        <label class="full">상품명<input id="productName" required maxlength="120" placeholder="예: Apple iPad Air 11 M3 Wi-Fi 128GB"></label>
+        <label>분류<input id="productCategory" list="categoryOptions" required placeholder="태블릿"></label>
+        <datalist id="categoryOptions"><option value="아이폰"><option value="아이패드"><option value="맥북"><option value="웨어러블"><option value="오디오"><option value="액세서리"></datalist>
+        <label>상태<select id="productStatus"><option value="available">확인 가능</option><option value="watching">가격 관찰</option><option value="sold">품절 / 종료</option></select></label>
+        <label>판매가<input id="salePrice" type="number" min="0" inputmode="numeric" placeholder="999000"></label>
+        <label>정가<input id="originalPrice" type="number" min="0" inputmode="numeric" placeholder="1199000"></label>
+        <label class="full">상품 URL<input id="productUrl" type="url" required placeholder="https://www.coupang.com/..."></label>
+        <label class="full">이미지 URL <span class="optional">선택</span><input id="imageUrl" type="url" placeholder="https://..."></label>
+        <label class="full">메모 <span class="optional">선택</span><textarea id="productNote" rows="3" maxlength="280" placeholder="반품 등급, 구성품 누락 여부, 확인일 등"></textarea></label>
+      </div>
+      <div class="dialog-actions"><button class="secondary-button" id="cancelDialog" type="button">취소</button><button class="primary-button" type="submit">저장</button></div>
+    </form>
+  </dialog>
+
+  <template id="productTemplate">
+    <article class="product-card">
+      <div class="card-image"><img alt="" loading="lazy"><span class="image-fallback" aria-hidden="true"></span><button class="favorite-button" type="button" title="찜하기" aria-label="찜하기">♡</button></div>
+      <div class="card-content">
+        <div class="card-meta"><span class="category"></span><span class="status"></span></div>
+        <h3 class="name"></h3>
+        <p class="note"></p>
+        <div class="price-row"><strong class="sale-price"></strong><span class="discount"></span></div>
+        <p class="original-price"></p>
+        <div class="card-footer"><time></time><div><button class="edit-button" type="button" title="수정" aria-label="수정">✎</button><a class="open-button" target="_blank" rel="noreferrer">상품 보기 <span aria-hidden="true">↗</span></a></div></div>
+      </div>
+    </article>
+  </template>
+
+  <script src="catalog-data.js"></script>
+  <script src="user-links.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
