@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = 'return-market-catalog-v1';
   const SEEDED_KEY = 'return-market-seeded-version';
-  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v15';
+  const USER_LINK_VERSION = 'dcinside-ipad1-1033696-user-links-v16';
   const CATALOG_VERSION = 'coupang-apple-return-market-2026-08-05-v3';
   const sourceUrl = 'https://pages.coupang.com/p/163488?sourceType=oms_share';
   const DEFAULT_PRODUCTS = Array.isArray(window.RETURN_MARKET_DEFAULT_PRODUCTS) ? window.RETURN_MARKET_DEFAULT_PRODUCTS : [];
@@ -39,9 +39,9 @@
     if (/(?:beats|비츠)/.test(text) && /(?:studio|버즈|buds|solo|fit|flex|헤드|headphone|이어폰|스피커)/.test(text)) return '비츠';
     if (/airpods|에어팟/.test(text)) return '에어팟';
     if (/watch|워치/.test(text)) return '애플워치';
+    if (/macbook|맥북|맥미니|맥 미니|맥 네오/.test(text)) return '맥';
     if (/iphone|아이폰/.test(text)) return '아이폰';
     if (/ipad|아이패드|패드|스탠다드 글래스/.test(text)) return '아이패드';
-    if (/macbook|맥북|맥미니|맥 미니|맥 네오/.test(text)) return '맥';
     if (/매직|magic keyboard|trackpad|트랙패드|펜슬|pencil|폴리오|케이스|케이블|밀레니즈/.test(text)) return '액세서리';
     const current = String(category).replace(/^댓글 제보(?:\s*·\s*)?/, '').trim();
     if (['아이폰', '아이패드', '맥', '애플워치', '에어팟', '비츠', '액세서리'].includes(current)) return current;
@@ -62,9 +62,22 @@
       if (/se/.test(name)) return 80 + Number(name.match(/se\s*([23])/i)?.[1] || 1);
       return Number(name.match(/(?:watch|워치)\s*(\d{1,2})/i)?.[1] || 0) * 10;
     }
+    if (category === '아이패드') {
+      const chipMatch = name.match(/(?:\bm\s*([1-5])\b|m([1-5])\b)/i);
+      const chip = Number(chipMatch?.[1] || chipMatch?.[2] || 0);
+      const family = /pro|프로/.test(name) ? 3 : /air|에어/.test(name) ? 2 : /mini|미니/.test(name) ? 1 : 0;
+      const nonM = /a\s*16|a16/.test(name) ? 0.8 : /a\s*17|a17/.test(name) ? 0.7 : 0;
+      return chip * 1000 + family * 10 + nonM;
+    }
+    if (category === '맥') {
+      const chipMatch = name.match(/(?:\bm\s*([1-5])\b|m([1-5])\b)/i);
+      const chip = Number(chipMatch?.[1] || chipMatch?.[2] || 0);
+      const family = /(?:pro|max|ultra|프로|맥스|울트라)/.test(name) ? 3 : /air|에어/.test(name) ? 2 : /mini|미니/.test(name) ? 1 : 0;
+      const intel = /intel|인텔|core\s*i[357]/.test(name) ? -100 : 0;
+      return chip * 1000 + family * 10 + year + intel;
+    }
     const chip = Number(name.match(/m\s*([1-5])/i)?.[1] || 0);
-    const numericModel = Number(name.match(/(?:아이패드|ipad|맥북|macbook|에어팟|airpods)\s*(\d{1,2})/i)?.[1] || 0);
-    return Math.max(chip * 100, year, numericModel * 10);
+    return Math.max(chip * 100, year);
   }
   function cleanProductNote(note) {
     return String(note || '')
