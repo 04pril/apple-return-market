@@ -61,6 +61,13 @@ async function loadCatalog(path) {
   return Array.isArray(sandbox.__CATALOG__) ? sandbox.__CATALOG__ : [];
 }
 
+function firstString(...values) {
+  for (const value of values) {
+    if (value != null && String(value).trim()) return String(value).trim();
+  }
+  return '';
+}
+
 function idsFromUrl(url) {
   try {
     const parsed = new URL(url);
@@ -77,9 +84,11 @@ function idsFromUrl(url) {
 
 function groupFor(category, name) {
   const normalized = String(category || '').trim().toLowerCase();
-  if (normalized === 'ipad') return 'ipad';
-  if (normalized === 'iphone') return 'iphone';
-  if (normalized === 'mac') return /\bmacbook\b|맥북/i.test(name) ? 'macbook' : 'other';
+  if (['ipad', '아이패드'].includes(normalized)) return 'ipad';
+  if (['iphone', '아이폰'].includes(normalized)) return 'iphone';
+  if (['mac', '맥'].includes(normalized)) {
+    return /\bmacbook\b|맥북/i.test(name) ? 'macbook' : 'other';
+  }
   return 'other';
 }
 
@@ -88,32 +97,63 @@ function canonicalUrl(productId, itemId, vendorItemId) {
   return `https://www.coupang.com/vp/products/${productId}?${query}`;
 }
 
+function finiteNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function normalizeRow(row, index) {
-  if (!Array.isArray(row)) return null;
-  const category = String(row[0] ?? '').trim();
-  const name = String(row[1] ?? '').trim();
-  const originalUrl = String(row[2] ?? '').trim();
-  const ids = idsFromUrl(originalUrl);
-  if (!/^\d+$/.test(ids.productId) || !/^\d+$/.test(ids.itemId) || !/^\d+$/.test(ids.vendorItemId)) {
+  if (!row || (typeof row !== 'object' && !Array.isArray(row))) return null;
+
+  const legacy = Array.isArray(row);
+  const category = legacy
+    ? firstString(row[0])
+    : firstString(row.category);
+  const name = legacy
+    ? firstString(row[1])
+    : firstString(row.name, row.title, row.productName);
+  const originalUrl = legacy
+    ? firstString(row[2])
+    : firstString(row.url);
+
+  const urlIds = idsFromUrl(originalUrl);
+  const productId = legacy
+    ? urlIds.productId
+    : firstString(row.productId, urlIds.productId);
+  const itemId = legacy
+    ? urlIds.itemId
+    : firstString(row.itemId, urlIds.itemId);
+  const vendorItemId = legacy
+    ? urlIds.vendorItemId
+    : firstString(row.vendorItemId, urlIds.vendorItemId);
+
+  if (!/^\d+$/.test(productId) || !/^\d+$/.test(itemId) || !/^\d+$/.test(vendorItemId)) {
     return null;
   }
 
+  const originalPrice = legacy ? finiteNumber(row[4]) : finiteNumber(row.originalPrice);
+  const returnPrice = legacy ? finiteNumber(row[5]) : finiteNumber(row.salePrice ?? row.returnPrice);
+  let discountRate = legacy ? finiteNumber(row[6]) : finiteNumber(row.discountRate);
+  if (discountRate == null && originalPrice && returnPrice && originalPrice > returnPrice) {
+    discountRate = Math.round((1 - returnPrice / originalPrice) * 100);
+  }
+
   return {
-    key: `vendor:${ids.vendorItemId}`,
+    key: `vendor:${vendorItemId}`,
     sourceIndex: index,
     group: groupFor(category, name),
     category,
     name,
-    condition: String(row[3] ?? '').trim(),
-    snapshotOriginalPrice: Number.isFinite(Number(row[4])) ? Number(row[4]) : null,
-    snapshotReturnPrice: Number.isFinite(Number(row[5])) ? Number(row[5]) : null,
-    snapshotDiscountRate: Number.isFinite(Number(row[6])) ? Number(row[6]) : null,
-    snapshotStatus: String(row[7] ?? '').trim(),
-    productId: ids.productId,
-    itemId: ids.itemId,
-    vendorItemId: ids.vendorItemId,
+    condition: legacy ? firstString(row[3]) : firstString(row.condition, row.offerCondition),
+    snapshotOriginalPrice: originalPrice,
+    snapshotReturnPrice: returnPrice,
+    snapshotDiscountRate: discountRate,
+    snapshotStatus: legacy ? firstString(row[7]) : firstString(row.status),
+    productId,
+    itemId,
+    vendorItemId,
     originalUrl,
-    url: canonicalUrl(ids.productId, ids.itemId, ids.vendorItemId),
+    url: canonicalUrl(productId, itemId, vendorItemId),
   };
 }
 
@@ -145,6 +185,7 @@ async function main() {
     group: args.group,
     catalogRows: catalog.length,
     completeTargets: deduped.length,
+    incompleteRows: catalog.length - normalized.length,
     groupTargets: grouped.length,
     offset: args.offset,
     requestedAll: args.all,
@@ -155,6 +196,7 @@ async function main() {
   await writeFile(output, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   console.log(`Catalog rows: ${catalog.length}`);
   console.log(`Complete exact-vendor targets: ${deduped.length}`);
+  console.log(`Incomplete rows skipped: ${catalog.length - normalized.length}`);
   console.log(`Group ${args.group}: ${grouped.length}`);
   console.log(`Queue: ${items.length} target(s), offset ${args.offset}`);
   console.log(`Saved: ${output}`);
