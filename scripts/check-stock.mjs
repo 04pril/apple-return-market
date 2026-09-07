@@ -277,11 +277,9 @@ async function inspectPage(page, target, timeoutMs) {
         .filter((entry) => purchasePattern.test(entry.text));
 
       const bodyText = String(document.body?.innerText || '').slice(0, 500000);
-      const html = String(document.documentElement?.innerHTML || '').slice(0, 1500000);
       return {
         title: document.title,
         bodyText,
-        html,
         controls,
       };
     }, PURCHASE_TEXT_RE.source);
@@ -306,16 +304,14 @@ async function inspectPage(page, target, timeoutMs) {
   const enabledPurchase = pageData.controls.some((control) => !control.disabled);
   const soldMatch = containsAny(combined, SOLD_OUT_RES);
   const returnMarketVisible = RETURN_MARKET_RE.test(combined);
-  const vendorInHtml = target.vendorItemId ? pageData.html.includes(target.vendorItemId) : false;
   const finalIds = idsFromUrl(page.url());
   const vendorSelected = Boolean(
-    target.vendorItemId
-    && (finalIds.vendorItemId === target.vendorItemId || vendorInHtml),
+    target.vendorItemId && finalIds.vendorItemId === target.vendorItemId,
   );
 
   if (target.vendorItemId) {
-    if (enabledPurchase && (vendorSelected || returnMarketVisible)) {
-      return result(STATUS.AVAILABLE, vendorSelected ? 'vendor_offer_buyable' : 'return_offer_buyable', target, {
+    if (enabledPurchase && vendorSelected && returnMarketVisible) {
+      return result(STATUS.AVAILABLE, 'vendor_return_offer_buyable', target, {
         httpStatus,
         finalUrl: page.url(),
         returnMarketVisible,
@@ -332,7 +328,12 @@ async function inspectPage(page, target, timeoutMs) {
         vendorSelected,
       });
     }
-    return result(STATUS.UNKNOWN, vendorSelected ? 'vendor_offer_state_unclear' : 'vendor_offer_not_confirmed', target, {
+    const reason = !vendorSelected
+      ? 'vendor_offer_not_selected'
+      : !returnMarketVisible
+        ? 'return_offer_not_visible'
+        : 'vendor_offer_state_unclear';
+    return result(STATUS.UNKNOWN, reason, target, {
       httpStatus,
       finalUrl: page.url(),
       returnMarketVisible,
