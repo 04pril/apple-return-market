@@ -2,3 +2,13 @@ node_modules/
 stock-latest*.json
 stock-latest*.json.tmp
 playwright-report/
+
+# Local Coupang diagnostics/captures. These may contain authenticated app traffic.
+flows
+*.mitm
+*.flow
+*.flows
+TalkFile_flows*.zip
+coupang-api-probe*.json
+coupang-2333-response*.json
+coupang-2333-parsed*.json
