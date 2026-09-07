@@ -1,0 +1,65 @@
+name: Probe Coupang mobile APIs
+
+on:
+  workflow_dispatch:
+    inputs:
+      product_id:
+        description: "Coupang productId"
+        required: true
+        default: "8179163270"
+      item_id:
+        description: "Coupang itemId"
+        required: true
+        default: "23379933793"
+      vendor_item_id:
+        description: "Exact return-offer vendorItemId"
+        required: true
+        default: "90443222680"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Probe public mobile/API endpoints
+        shell: powershell
+        env:
+          PRODUCT_ID: ${{ inputs.product_id }}
+          ITEM_ID: ${{ inputs.item_id }}
+          VENDOR_ITEM_ID: ${{ inputs.vendor_item_id }}
+        run: |
+          foreach ($value in @($env:PRODUCT_ID, $env:ITEM_ID, $env:VENDOR_ITEM_ID)) {
+            if ($value -notmatch '^\d+$') {
+              throw 'All IDs must contain digits only.'
+            }
+          }
+
+          node scripts/probe-coupang-api.mjs `
+            --product-id $env:PRODUCT_ID `
+            --item-id $env:ITEM_ID `
+            --vendor-item-id $env:VENDOR_ITEM_ID `
+            --output coupang-api-probe.json
+
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Upload diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coupang-api-probe
+          path: coupang-api-probe.json
+          if-no-files-found: warn
+          retention-days: 7
