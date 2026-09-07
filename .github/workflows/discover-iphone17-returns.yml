@@ -1,0 +1,47 @@
+name: Discover iPhone 17 return offers
+
+on:
+  push:
+    branches:
+      - chatgpt/iphone17-return-discovery
+    paths:
+      - scripts/discover-iphone17-returns.mjs
+      - .github/workflows/discover-iphone17-returns.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        shell: powershell
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        shell: powershell
+        run: npx playwright install chromium
+
+      - name: Discover iPhone 17 return offers
+        shell: powershell
+        run: node scripts/discover-iphone17-returns.mjs
+
+      - name: Upload discovery result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone17-return-discovery
+          path: iphone17-return-discovery.json
+          if-no-files-found: warn
+          retention-days: 1
