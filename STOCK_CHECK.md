@@ -22,13 +22,36 @@ Resume an interrupted scan:
 npm run stock:check -- --all --resume
 ```
 
+## Product groups
+
+The checker can scan one mutually exclusive group instead of the whole catalog:
+
+```bash
+npm run stock:check -- --group macbook --all
+npm run stock:check -- --group ipad --all
+npm run stock:check -- --group iphone --all
+npm run stock:check -- --group other --all
+```
+
+Accepted values are `all`, `macbook`, `ipad`, `iphone`, and `other`.
+
+- `macbook`: MacBook products only.
+- `ipad`: iPad products.
+- `iphone`: iPhone products.
+- `other`: everything else, including iMac/Mac mini/Mac Studio, Apple Watch, AirPods, and accessories.
+
+Catalog category metadata takes priority over name matching, so an accessory whose title contains `MacBook` remains in `other` instead of being treated as a MacBook.
+
+When no explicit `--output` is supplied, grouped local runs write `stock-latest-macbook.json`, `stock-latest-ipad.json`, `stock-latest-iphone.json`, or `stock-latest-other.json`. A full `all` scan keeps using `stock-latest.json`.
+
 Useful options:
 
 ```text
---concurrency N   browser workers, default 2 (max 8)
---delay-ms N      minimum delay per worker, default 1500 ms
+--group NAME       all | macbook | ipad | iphone | other (default: all)
+--concurrency N   browser workers, default 4 in GitHub Actions (max 8)
+--delay-ms N      minimum delay per worker, default 1000 ms in GitHub Actions
 --timeout-ms N    navigation timeout, default 30000 ms
---output PATH     output JSON, default stock-latest.json
+--output PATH     output JSON
 --catalog-only    ignore additions from user-links.js
 --headful         show Chromium for debugging
 ```
@@ -47,6 +70,6 @@ When a historical row has `vendorItemId`, that exact offer is checked preferenti
 
 ## GitHub Actions
 
-`.github/workflows/stock-check.yml` supports a manual full scan. It also runs once when the workflow file itself is first merged to `main`, so the initial installation produces a real scan artifact without committing the generated result into the repository.
+`.github/workflows/stock-check.yml` supports manual scans with a `group` dropdown. Choose `all`, `macbook`, `ipad`, `iphone`, or `other`, then set the concurrency/delay values as usual.
 
-The workflow uploads `stock-latest.json` as the `coupang-stock-latest` artifact.
+The workflow uses `stock-latest.json` inside each individual run and uploads it as a group-labelled artifact such as `coupang-stock-iphone-latest` or `coupang-stock-macbook-latest`.
