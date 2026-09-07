@@ -1,4 +1,4 @@
 node_modules/
-stock-latest.json
-stock-latest.json.tmp
+stock-latest*.json
+stock-latest*.json.tmp
 playwright-report/
