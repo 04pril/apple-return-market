@@ -90,10 +90,45 @@ npm run stock:parse-response -- --input response.json --vendor-item-id 123456789
 A full exported mitmproxy flow dump, or a ZIP containing one, can be parsed offline without copying request headers/cookies/tokens/signatures into the output:
 
 ```powershell
-py scripts/parse-coupang-mitm-flow.py "TalkFile_flows (1).zip"
+npm run stock:parse-flow -- "TalkFile_flows (1).zip"
 ```
 
 Raw flow captures contain authenticated app traffic and must remain local. The repository `.gitignore` excludes common capture/output filenames for this reason.
+
+## App-driven batch workflow
+
+The preferred path for return offers is now to let the real Coupang app create its normal product request, then parse only the successful `2333` response offline. Do not copy or replay app authentication headers/signatures.
+
+First build a small exact-vendor queue from the historical catalog:
+
+```powershell
+npm run stock:app-queue -- --group iphone --limit 20
+```
+
+The queue builder only includes rows that contain all three IDs (`productId`, `itemId`, and `vendorItemId`) and rewrites them to a complete `landingType=USED_DETAIL` URL. It also supports safe batching:
+
+```powershell
+npm run stock:app-queue -- --group iphone --offset 20 --limit 20
+npm run stock:app-queue -- --group macbook --limit 20
+npm run stock:app-queue -- --group all --all
+```
+
+After those queue items have been opened in the real app and the mitmproxy flows have been exported, join one or more capture batches back to the queue:
+
+```powershell
+npm run stock:parse-flow -- batch1.zip batch2.zip --queue coupang-app-queue-iphone.json --output stock-latest-iphone.json
+```
+
+The generated stock file is compatible with the existing `available` / `sold_out` / `unknown` model. Only an observed exact `vendorItemId` is considered complete. A queue item not present in the capture remains:
+
+```text
+status = unknown
+reason = not_observed
+```
+
+This makes interrupted or partial phone scans resumable without treating missing traffic as sold out.
+
+For large catalogs, use small batches and a reasonable delay between app opens rather than driving thousands of product-detail loads at once.
 
 ## GitHub Actions: Windows self-hosted runner
 
