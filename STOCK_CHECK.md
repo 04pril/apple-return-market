@@ -68,8 +68,48 @@ The result deliberately uses three states:
 
 When a historical row has `vendorItemId`, that exact offer is checked preferentially. Rows that only have a `productId` are reported as `available` only when the page visibly contains a return-market condition (for example `반품 - 최상`, `반품 - 상`, `반품 - 중`, or `박스 훼손`) together with an enabled purchase control.
 
-## GitHub Actions
+## GitHub Actions: Windows self-hosted runner
 
-`.github/workflows/stock-check.yml` supports manual scans with a `group` dropdown. Choose `all`, `macbook`, `ipad`, `iphone`, or `other`, then set the concurrency/delay values as usual.
+GitHub-hosted Actions runners received HTTP 403 from Coupang for every target, so the stock workflow intentionally runs only on a Windows x64 self-hosted runner. The Actions UI still provides the same `group`, `limit`, `concurrency`, and `delay_ms` controls; only the machine performing the scan changes.
 
-The workflow uses `stock-latest.json` inside each individual run and uploads it as a group-labelled artifact such as `coupang-stock-iphone-latest` or `coupang-stock-macbook-latest`.
+### One-time runner registration
+
+On the repository page, open:
+
+`Settings > Actions > Runners > New self-hosted runner`
+
+Choose **Windows** and **x64**. GitHub will generate a short set of PowerShell commands containing a temporary registration token. Run those exact commands in an empty folder on the Windows PC that should perform the scans.
+
+A typical folder is:
+
+```powershell
+mkdir C:\actions-runner
+cd C:\actions-runner
+```
+
+Then run the download, extraction, and `config.cmd` commands shown by GitHub. Keep the default labels; the workflow expects the automatic labels `self-hosted`, `Windows`, and `X64`.
+
+To test interactively, start the runner with:
+
+```powershell
+.\run.cmd
+```
+
+Leave that window open and trigger the workflow from `Actions > Check Coupang return-market stock > Run workflow`.
+
+### Optional: run it as a Windows service
+
+If the PC should accept scans without keeping a terminal open, configure the runner as a service using the service commands provided by the GitHub runner package after registration. Run the service setup from an elevated PowerShell/Command Prompt, then verify in the repository's `Settings > Actions > Runners` page that the runner is `Idle` before launching a scan.
+
+### Running a scan
+
+Open `Actions > Check Coupang return-market stock > Run workflow`, then choose for example:
+
+- `group = iphone`
+- `limit = 0`
+- `concurrency = 4`
+- `delay_ms = 1000`
+
+The default group is `iphone` because it is usually the most useful quick scan. Choose `all` when a full catalog refresh is needed.
+
+Each run uploads `stock-latest.json` as a group-labelled artifact such as `coupang-stock-iphone-latest`, `coupang-stock-macbook-latest`, or `coupang-stock-all-latest`.
