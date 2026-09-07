@@ -104,15 +104,18 @@ function boolish(value) {
   return null;
 }
 
-function deriveState(signals) {
+function deriveState(signals, exactVendorFound) {
+  if (!exactVendorFound) return 'unknown';
+
   const soldOut = boolish(first(signals, 'soldOut', 'isOutOfStock'));
   const returned = boolish(first(signals, 'isRetailReturnedItem'));
   const style = String(first(signals, 'style') ?? '').toUpperCase();
   const layoutStyle = String(first(signals, 'layoutStyle') ?? '').toUpperCase();
+  const isReturnOffer = returned === true || style === 'USED' || layoutStyle === 'USED';
+
+  if (!isReturnOffer) return 'unknown';
   if (soldOut === true) return 'sold_out';
-  if (soldOut === false && (returned === true || style === 'USED' || layoutStyle === 'USED')) {
-    return 'candidate_available';
-  }
+  if (soldOut === false) return 'available';
   return 'unknown';
 }
 
@@ -127,11 +130,12 @@ async function main() {
   const vendorObjects = args.vendorItemId ? findVendorObjects(data, args.vendorItemId) : [];
   const vendorSignals = vendorObjects.flatMap((entry) => collectSignals(entry.value, entry.path, []));
   const signals = vendorSignals.length ? vendorSignals : globalSignals;
+  const exactVendorFound = vendorObjects.length > 0;
 
   const result = {
     schemaVersion: 1,
     vendorItemId: args.vendorItemId || first(signals, 'vendorItemId'),
-    exactVendorFound: vendorObjects.length > 0,
+    exactVendorFound,
     rCode: data?.rCode ?? null,
     rMessage: data?.rMessage ?? null,
     returnOffer: {
@@ -144,7 +148,7 @@ async function main() {
       soldOut: boolish(first(signals, 'soldOut', 'isOutOfStock')),
       isAlmostOOS: boolish(first(signals, 'isAlmostOOS', 'isAlmostOSS')),
       buyableQuantity: first(signals, 'buyableQuantity', 'remainingQuantity', 'quantity'),
-      state: deriveState(signals),
+      state: deriveState(signals, exactVendorFound),
     },
     pricing: {
       finalPrice: first(signals, 'finalPrice'),
