@@ -68,6 +68,33 @@ The result deliberately uses three states:
 
 When a historical row has `vendorItemId`, that exact offer is checked preferentially. Rows that only have a `productId` are reported as `available` only when the page visibly contains a return-market condition (for example `반품 - 최상`, `반품 - 상`, `반품 - 중`, or `박스 훼손`) together with an enabled purchase control.
 
+## iOS app capture validation
+
+The Coupang iOS app was observed successfully calling the product-detail endpoint `2333` while the equivalent unauthenticated PC probes returned HTTP 403. For a successful `2333` JSON response, the stock/return signals are available together under:
+
+`rData.properties.pageSession.logging.bypass.exposureSchema.mandatory`
+
+Two independently captured return offers established the exact-offer mapping used by the response parser:
+
+- exact `vendorItemId` + returned/`USED` offer + `soldOut=true` -> `sold_out`
+- exact `vendorItemId` + returned/`USED` offer + `soldOut=false` -> `available`
+
+`isAlmostOOS=true` means the offer is nearly out of stock, not sold out.
+
+A saved raw `2333` response can be sanitized with:
+
+```bash
+npm run stock:parse-response -- --input response.json --vendor-item-id 123456789
+```
+
+A full exported mitmproxy flow dump, or a ZIP containing one, can be parsed offline without copying request headers/cookies/tokens/signatures into the output:
+
+```powershell
+py scripts/parse-coupang-mitm-flow.py "TalkFile_flows (1).zip"
+```
+
+Raw flow captures contain authenticated app traffic and must remain local. The repository `.gitignore` excludes common capture/output filenames for this reason.
+
 ## GitHub Actions: Windows self-hosted runner
 
 GitHub-hosted Actions runners received HTTP 403 from Coupang for every target, so the stock workflow intentionally runs only on a Windows x64 self-hosted runner. The Actions UI still provides the same `group`, `limit`, `concurrency`, and `delay_ms` controls; only the machine performing the scan changes.
