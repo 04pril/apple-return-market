@@ -7,6 +7,7 @@
     "stock:capture": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-coupang-capture.ps1",
     "stock:app-queue": "node scripts/build-coupang-app-queue.mjs",
     "stock:app-run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-coupang-app-queue.ps1",
+    "stock:shortcuts": "node scripts/export-coupang-shortcuts-urls.mjs",
     "stock:parse-response": "node scripts/parse-coupang-2333-response.mjs",
     "stock:parse-flow": "py scripts/parse-coupang-mitm-flow.py"
   },
