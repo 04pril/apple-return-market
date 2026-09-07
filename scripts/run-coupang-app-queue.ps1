@@ -41,9 +41,14 @@ $target = "$User@$HostName"
 
 Write-Host "Checking jailbroken iPhone opener over SSH..."
 if (-not $WhatIf) {
-  & $ssh.Source -p $Port $target 'command -v uiopen >/dev/null 2>&1'
+  $portOpen = Test-NetConnection -ComputerName $HostName -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue
+  if (-not $portOpen) {
+    throw "SSH is not listening on ${HostName}:${Port}. On the iPhone, install/enable an SSH server (for example OpenSSH), then retry."
+  }
+
+  & $ssh.Source -o ConnectTimeout=5 -p $Port $target 'command -v uiopen >/dev/null 2>&1'
   if ($LASTEXITCODE -ne 0) {
-    throw 'uiopen was not found on the iPhone. Install/provide uiopen first, then retry.'
+    throw "SSH reached ${HostName}:${Port}, but uiopen was not found for user '$User'. Install/provide uiopen first, then retry."
   }
 }
 
@@ -73,7 +78,7 @@ for ($i = 0; $i -lt $selected.Count; $i += 1) {
     # creates its own signed/authenticated request; this script never receives
     # or stores app cookies, authorization headers, signatures, or device IDs.
     $remoteCommand = "uiopen --url '$url'"
-    & $ssh.Source -p $Port $target $remoteCommand
+    & $ssh.Source -o ConnectTimeout=5 -p $Port $target $remoteCommand
     if ($LASTEXITCODE -ne 0) {
       throw "Failed to open queue item $position (vendorItemId=$vendorItemId)."
     }
