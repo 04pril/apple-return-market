@@ -10,11 +10,11 @@ on:
       concurrency:
         description: "Browser workers (1-8)"
         required: true
-        default: "2"
+        default: "4"
       delay_ms:
         description: "Minimum delay per worker in milliseconds (>=250)"
         required: true
-        default: "1500"
+        default: "1000"
   push:
     branches:
       - main
@@ -47,8 +47,8 @@ jobs:
         shell: bash
         env:
           INPUT_LIMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.limit || '0' }}
-          INPUT_CONCURRENCY: ${{ github.event_name == 'workflow_dispatch' && inputs.concurrency || '2' }}
-          INPUT_DELAY_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.delay_ms || '1500' }}
+          INPUT_CONCURRENCY: ${{ github.event_name == 'workflow_dispatch' && inputs.concurrency || '4' }}
+          INPUT_DELAY_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.delay_ms || '1000' }}
         run: |
           for value in "$INPUT_LIMIT" "$INPUT_CONCURRENCY" "$INPUT_DELAY_MS"; do
             if [[ ! "$value" =~ ^[0-9]+$ ]]; then
