@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "stock:check": "node scripts/check-stock.mjs"
+    "stock:check": "node scripts/check-stock-group.mjs"
   },
   "devDependencies": {
     "playwright": "^1.55.0"
