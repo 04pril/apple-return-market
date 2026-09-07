@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "stock:check": "node scripts/check-stock-group.mjs",
+    "stock:capture": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-coupang-capture.ps1",
     "stock:app-queue": "node scripts/build-coupang-app-queue.mjs",
     "stock:app-run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-coupang-app-queue.ps1",
     "stock:parse-response": "node scripts/parse-coupang-2333-response.mjs",
