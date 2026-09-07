@@ -1,0 +1,73 @@
+name: Check Coupang return-market stock
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "0 = all targets; otherwise scan the first N"
+        required: true
+        default: "0"
+      concurrency:
+        description: "Browser workers (1-8)"
+        required: true
+        default: "2"
+      delay_ms:
+        description: "Minimum delay per worker in milliseconds (>=250)"
+        required: true
+        default: "1500"
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/stock-check.yml
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate inputs and scan
+        shell: bash
+        env:
+          INPUT_LIMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.limit || '0' }}
+          INPUT_CONCURRENCY: ${{ github.event_name == 'workflow_dispatch' && inputs.concurrency || '2' }}
+          INPUT_DELAY_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.delay_ms || '1500' }}
+        run: |
+          for value in "$INPUT_LIMIT" "$INPUT_CONCURRENCY" "$INPUT_DELAY_MS"; do
+            if [[ ! "$value" =~ ^[0-9]+$ ]]; then
+              echo "Inputs must be non-negative integers" >&2
+              exit 2
+            fi
+          done
+
+          args=(--all --concurrency "$INPUT_CONCURRENCY" --delay-ms "$INPUT_DELAY_MS")
+          if [[ "$INPUT_LIMIT" -gt 0 ]]; then
+            args+=(--limit "$INPUT_LIMIT")
+          fi
+          npm run stock:check -- "${args[@]}"
+
+      - name: Upload scan result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coupang-stock-latest
+          path: stock-latest.json
+          if-no-files-found: warn
+          retention-days: 14
