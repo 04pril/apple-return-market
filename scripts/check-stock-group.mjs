@@ -49,16 +49,22 @@ function firstString(...values) {
 }
 
 function recordName(record) {
-  if (Array.isArray(record)) return firstString(record[0]);
+  // catalog-data.js rows are arrays in the form
+  // [category, name, url, condition, originalPrice, returnPrice, discountRate, status].
+  if (Array.isArray(record)) return firstString(record[1]);
   if (!record || typeof record !== 'object') return '';
   return firstString(record.name, record.title, record.productName);
 }
 
+function recordCategory(record) {
+  if (Array.isArray(record)) return firstString(record[0]);
+  if (!record || typeof record !== 'object') return '';
+  return firstString(record.category);
+}
+
 function classifyRecord(record) {
   const name = recordName(record);
-  const category = !Array.isArray(record) && record && typeof record === 'object'
-    ? firstString(record.category)
-    : '';
+  const category = recordCategory(record);
   const normalizedCategory = category.toLowerCase();
 
   // Catalog categories take priority so accessories such as "MacBook case"
