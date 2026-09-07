@@ -7,13 +7,13 @@ on:
         description: "Product group to scan"
         required: true
         type: choice
-        default: "all"
+        default: "iphone"
         options:
-          - all
+          - iphone
           - macbook
           - ipad
-          - iphone
           - other
+          - all
       limit:
         description: "0 = all targets in the selected group; otherwise scan the first N"
         required: true
@@ -26,21 +26,18 @@ on:
         description: "Minimum delay per worker in milliseconds (>=250)"
         required: true
         default: "1000"
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/stock-check.yml
 
 permissions:
   contents: read
 
 jobs:
   scan:
-    runs-on: ubuntu-latest
+    # Coupang returns HTTP 403 from GitHub-hosted datacenter IPs.
+    # This job intentionally runs only on the repository's Windows x64 self-hosted runner.
+    runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 360
     env:
-      SCAN_GROUP: ${{ github.event_name == 'workflow_dispatch' && inputs.group || 'all' }}
+      SCAN_GROUP: ${{ inputs.group }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -49,40 +46,59 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
 
       - name: Install dependencies
+        shell: pwsh
         run: npm install --no-audit --no-fund
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        shell: pwsh
+        run: npx playwright install chromium
 
       - name: Validate inputs and scan
-        shell: bash
+        shell: pwsh
         env:
-          INPUT_LIMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.limit || '0' }}
-          INPUT_CONCURRENCY: ${{ github.event_name == 'workflow_dispatch' && inputs.concurrency || '4' }}
-          INPUT_DELAY_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.delay_ms || '1000' }}
+          INPUT_LIMIT: ${{ inputs.limit }}
+          INPUT_CONCURRENCY: ${{ inputs.concurrency }}
+          INPUT_DELAY_MS: ${{ inputs.delay_ms }}
         run: |
-          for value in "$INPUT_LIMIT" "$INPUT_CONCURRENCY" "$INPUT_DELAY_MS"; do
-            if [[ ! "$value" =~ ^[0-9]+$ ]]; then
-              echo "Inputs must be non-negative integers" >&2
-              exit 2
-            fi
-          done
+          foreach ($value in @($env:INPUT_LIMIT, $env:INPUT_CONCURRENCY, $env:INPUT_DELAY_MS)) {
+            if ($value -notmatch '^\d+$') {
+              throw 'Inputs must be non-negative integers.'
+            }
+          }
 
-          case "$SCAN_GROUP" in
-            all|macbook|ipad|iphone|other) ;;
-            *)
-              echo "Invalid group: $SCAN_GROUP" >&2
-              exit 2
-              ;;
-          esac
+          $limit = [int]$env:INPUT_LIMIT
+          $workers = [int]$env:INPUT_CONCURRENCY
+          $delayMs = [int]$env:INPUT_DELAY_MS
+          $validGroups = @('all', 'macbook', 'ipad', 'iphone', 'other')
 
-          args=(--all --group "$SCAN_GROUP" --concurrency "$INPUT_CONCURRENCY" --delay-ms "$INPUT_DELAY_MS" --output stock-latest.json)
-          if [[ "$INPUT_LIMIT" -gt 0 ]]; then
-            args+=(--limit "$INPUT_LIMIT")
-          fi
-          npm run stock:check -- "${args[@]}"
+          if ($workers -lt 1 -or $workers -gt 8) {
+            throw 'concurrency must be between 1 and 8.'
+          }
+          if ($delayMs -lt 250) {
+            throw 'delay_ms must be at least 250.'
+          }
+          if ($env:SCAN_GROUP -notin $validGroups) {
+            throw "Invalid group: $env:SCAN_GROUP"
+          }
+
+          $scanArgs = @(
+            '--all',
+            '--group', $env:SCAN_GROUP,
+            '--concurrency', $workers,
+            '--delay-ms', $delayMs,
+            '--output', 'stock-latest.json'
+          )
+          if ($limit -gt 0) {
+            $scanArgs += @('--limit', $limit)
+          }
+
+          npm run stock:check -- @scanArgs
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
 
       - name: Upload scan result
         if: always()
