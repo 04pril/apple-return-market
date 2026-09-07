@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "stock:check": "node scripts/check-stock-group.mjs",
-    "stock:parse-response": "node scripts/parse-coupang-2333-response.mjs"
+    "stock:app-queue": "node scripts/build-coupang-app-queue.mjs",
+    "stock:parse-response": "node scripts/parse-coupang-2333-response.mjs",
+    "stock:parse-flow": "py scripts/parse-coupang-mitm-flow.py"
   },
   "devDependencies": {
     "playwright": "^1.55.0"
