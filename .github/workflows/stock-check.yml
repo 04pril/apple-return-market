@@ -3,8 +3,19 @@ name: Check Coupang return-market stock
 on:
   workflow_dispatch:
     inputs:
+      group:
+        description: "Product group to scan"
+        required: true
+        type: choice
+        default: "all"
+        options:
+          - all
+          - macbook
+          - ipad
+          - iphone
+          - other
       limit:
-        description: "0 = all targets; otherwise scan the first N"
+        description: "0 = all targets in the selected group; otherwise scan the first N"
         required: true
         default: "0"
       concurrency:
@@ -28,6 +39,8 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    env:
+      SCAN_GROUP: ${{ github.event_name == 'workflow_dispatch' && inputs.group || 'all' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -57,7 +70,15 @@ jobs:
             fi
           done
 
-          args=(--all --concurrency "$INPUT_CONCURRENCY" --delay-ms "$INPUT_DELAY_MS")
+          case "$SCAN_GROUP" in
+            all|macbook|ipad|iphone|other) ;;
+            *)
+              echo "Invalid group: $SCAN_GROUP" >&2
+              exit 2
+              ;;
+          esac
+
+          args=(--all --group "$SCAN_GROUP" --concurrency "$INPUT_CONCURRENCY" --delay-ms "$INPUT_DELAY_MS" --output stock-latest.json)
           if [[ "$INPUT_LIMIT" -gt 0 ]]; then
             args+=(--limit "$INPUT_LIMIT")
           fi
@@ -67,7 +88,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coupang-stock-latest
+          name: coupang-stock-${{ env.SCAN_GROUP }}-latest
           path: stock-latest.json
           if-no-files-found: warn
           retention-days: 14
