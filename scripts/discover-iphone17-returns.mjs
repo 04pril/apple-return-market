@@ -25,6 +25,36 @@ const targets = [
   ['17 Pro Max 2TB Cosmic Orange','9024167604','26462330401','93437609851'],
 ];
 
+function absolute(href) {
+  try { return new URL(href, 'https://www.coupang.com').href; } catch { return href || ''; }
+}
+
+function idsFromUrl(url) {
+  try {
+    const u = new URL(url);
+    return {
+      productId: u.pathname.match(/\/vp\/products\/(\d+)/)?.[1] || '',
+      itemId: u.searchParams.get('itemId') || u.pathname.match(/\/item\/(\d+)/)?.[1] || '',
+      vendorItemId: u.searchParams.get('vendorItemId') || '',
+      landingType: u.searchParams.get('landingType') || '',
+    };
+  } catch { return { productId:'', itemId:'', vendorItemId:'', landingType:'' }; }
+}
+
+async function inspect(page) {
+  return await page.evaluate(() => {
+    const els = [...document.querySelectorAll('a,button')];
+    const links = els.map(el => ({
+      tag: el.tagName,
+      text: String(el.textContent || '').replace(/\s+/g,' ').trim(),
+      href: el.tagName === 'A' ? (el.href || el.getAttribute('href') || '') : '',
+    })).filter(x => x.href || /반품|박스\s*훼손|중고|상세보기|다른 판매자/i.test(x.text));
+    const text = String(document.body?.innerText || '').slice(0, 600000);
+    const html = String(document.documentElement?.innerHTML || '').slice(0, 3000000);
+    return { title: document.title, text, html, links };
+  });
+}
+
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
   locale: 'ko-KR',
@@ -33,97 +63,76 @@ const context = await browser.newContext({
   viewport: { width: 1440, height: 1800 },
 });
 
-const results = [];
-const seenDirect = new Map();
+const output = { checkedAt: new Date().toISOString(), directUrls: [], entries: [] };
+const directSet = new Set();
 
-function abs(href) {
-  try { return new URL(href, 'https://www.coupang.com').href; } catch { return href; }
-}
-
-function directUrlsFromText(text) {
-  const out = new Set();
-  const decoded = String(text || '')
-    .replaceAll('&amp;', '&')
-    .replaceAll('\\u0026', '&')
-    .replaceAll('\\/', '/');
-  for (const m of decoded.matchAll(/(?:https?:\\/\\/www\\.coupang\\.com)?\\/vp\\/products\\/\\d+[^\"'<>\\s]{0,500}?landingType=USED_DETAIL[^\"'<>\\s]{0,500}/gi)) {
-    let u = m[0].replace(/[),;]+$/, '');
-    out.add(abs(u));
-  }
-  return [...out];
-}
-
-for (const [name, productId, itemId, vendorItemId] of targets) {
+for (const [name, productId, itemId, normalVendor] of targets) {
   const page = await context.newPage();
-  const networkBodies = [];
-  page.on('response', async (resp) => {
+  const networkUrls = new Set();
+  page.on('request', req => {
+    const u = req.url();
+    if (/offerList|other-seller|used|return/i.test(u)) networkUrls.add(u);
+  });
+  page.on('response', resp => {
     const u = resp.url();
-    if (/offerList|other-seller|used|return/i.test(u)) {
-      try {
-        const body = await resp.text();
-        networkBodies.push({ url: u, status: resp.status(), body: body.slice(0, 1000000) });
-      } catch {}
-    }
+    if (/offerList|other-seller|used|return/i.test(u)) networkUrls.add(u);
   });
 
-  const offerListUrl = `https://www.coupang.com/vp/products/${productId}/item/${itemId}/offerList?totalCount=99&vendorItemId=${vendorItemId}`;
-  const entry = { name, productId, itemId, vendorItemId, offerListUrl, httpStatus: 0, finalUrl: '', title: '', bodyHasReturn: false, returnText: '', directUrls: [], vendorIds: [], networkDirectUrls: [], error: '' };
+  const baseUrl = `https://www.coupang.com/vp/products/${productId}?itemId=${itemId}&vendorItemId=${normalVendor}`;
+  const record = { name, productId, itemId, normalVendor, baseUrl, base: null, offerPages: [], found: [], error: '' };
 
   try {
-    const resp = await page.goto(offerListUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    entry.httpStatus = resp?.status() || 0;
-    try { await page.waitForLoadState('networkidle', { timeout: 5000 }); } catch {}
-    await page.waitForTimeout(800);
-    entry.finalUrl = page.url();
-    entry.title = await page.title();
+    let resp = await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    try { await page.waitForLoadState('networkidle', { timeout: 4000 }); } catch {}
+    await page.waitForTimeout(700);
+    const dom = await inspect(page);
+    record.base = { status: resp?.status() || 0, finalUrl: page.url(), title: dom.title, hasReturnText: /반품\s*-|박스\s*훼손|중고\s*-/i.test(dom.text), relevantLinks: dom.links.filter(x => /offerList|USED_DETAIL|반품|박스\s*훼손|중고|다른 판매자|상세보기/i.test(`${x.href} ${x.text}`)).slice(0,100), networkUrls: [...networkUrls] };
 
-    const dom = await page.evaluate(() => {
-      const anchors = [...document.querySelectorAll('a')].map(a => ({
-        text: String(a.textContent || '').replace(/\\s+/g, ' ').trim(),
-        href: a.href || a.getAttribute('href') || ''
-      }));
-      const text = String(document.body?.innerText || '');
-      const html = String(document.documentElement?.innerHTML || '');
-      return { anchors, text: text.slice(0, 500000), html: html.slice(0, 2000000) };
-    });
+    const candidateOffers = new Set();
+    for (const l of dom.links) if (/offerList/i.test(l.href)) candidateOffers.add(absolute(l.href));
+    for (const u of networkUrls) if (/offerList/i.test(u)) candidateOffers.add(absolute(u));
+    for (const total of [2,3,4,5,10,99]) candidateOffers.add(`https://www.coupang.com/vp/products/${productId}/item/${itemId}/offerList?totalCount=${total}&vendorItemId=${normalVendor}`);
 
-    const direct = new Set();
-    for (const a of dom.anchors) {
-      if (/landingType=USED_DETAIL/i.test(a.href)) direct.add(abs(a.href));
+    const directCandidates = new Set();
+    for (const l of dom.links) if (/USED_DETAIL/i.test(l.href)) directCandidates.add(absolute(l.href));
+
+    for (const offerUrl of [...candidateOffers]) {
+      networkUrls.clear();
+      try {
+        resp = await page.goto(offerUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        try { await page.waitForLoadState('networkidle', { timeout: 2500 }); } catch {}
+        await page.waitForTimeout(350);
+        const odom = await inspect(page);
+        const rel = odom.links.filter(x => /USED_DETAIL|반품|박스\s*훼손|중고/i.test(`${x.href} ${x.text}`));
+        for (const l of rel) if (/USED_DETAIL/i.test(l.href)) directCandidates.add(absolute(l.href));
+        for (const u of networkUrls) if (/USED_DETAIL/i.test(u)) directCandidates.add(absolute(u));
+        record.offerPages.push({ url: offerUrl, status: resp?.status() || 0, finalUrl: page.url(), title: odom.title, hasReturnText: /반품\s*-|박스\s*훼손|중고\s*-/i.test(odom.text), returnSnippet: (() => { const i = odom.text.search(/반품\s*-|박스\s*훼손|중고\s*-/i); return i >= 0 ? odom.text.slice(Math.max(0,i-250), i+1600) : ''; })(), relevantLinks: rel.slice(0,100) });
+      } catch (e) {
+        record.offerPages.push({ url: offerUrl, error: String(e?.message || e) });
+      }
     }
-    for (const u of directUrlsFromText(dom.html)) direct.add(u);
-    for (const u of directUrlsFromText(dom.text)) direct.add(u);
 
-    entry.bodyHasReturn = /반품\s*-|박스\s*훼손|중고\s*-/i.test(dom.text);
-    if (entry.bodyHasReturn) {
-      const idx = dom.text.search(/반품\s*-|박스\s*훼손|중고\s*-/i);
-      entry.returnText = dom.text.slice(Math.max(0, idx - 300), idx + 1800);
+    for (const u of directCandidates) {
+      const ids = idsFromUrl(u);
+      if (ids.landingType === 'USED_DETAIL' || /landingType=USED_DETAIL/i.test(u)) {
+        record.found.push({ url: u, ...ids });
+        directSet.add(u);
+      }
     }
-    entry.vendorIds = [...new Set(dom.html.match(/vendorItemId(?:=|%3D|[\"': ]+)\d{8,}/gi)?.map(s => s.match(/\d{8,}/)?.[0]).filter(Boolean) || [])];
-    entry.directUrls = [...direct];
-
-    const netDirect = new Set();
-    for (const n of networkBodies) for (const u of directUrlsFromText(n.body)) netDirect.add(u);
-    entry.networkDirectUrls = [...netDirect];
-
-    for (const u of [...entry.directUrls, ...entry.networkDirectUrls]) seenDirect.set(u, name);
-    console.log(JSON.stringify({ name, status: entry.httpStatus, hasReturn: entry.bodyHasReturn, direct: [...direct, ...netDirect] }));
-  } catch (error) {
-    entry.error = String(error?.stack || error);
-    console.error(name, entry.error);
+    console.log(JSON.stringify({ name, found: record.found.map(x => x.url), baseHasReturn: record.base?.hasReturnText }));
+  } catch (e) {
+    record.error = String(e?.stack || e);
+    console.error(name, record.error);
   } finally {
-    results.push(entry);
+    output.entries.push(record);
     await page.close();
   }
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise(r => setTimeout(r, 300));
 }
 
-const payload = {
-  checkedAt: new Date().toISOString(),
-  directUrls: [...seenDirect.entries()].map(([url, source]) => ({ source, url })),
-  results,
-};
-await writeFile('iphone17-return-discovery.json', JSON.stringify(payload, null, 2), 'utf8');
-console.log('DISCOVERED_DIRECT_URLS');
-for (const x of payload.directUrls) console.log(`${x.source}: ${x.url}`);
+output.directUrls = [...directSet];
+await writeFile('iphone17-return-discovery.json', JSON.stringify(output, null, 2), 'utf8');
+console.log('DIRECT_URLS_START');
+for (const u of output.directUrls) console.log(u);
+console.log('DIRECT_URLS_END');
 await browser.close();
