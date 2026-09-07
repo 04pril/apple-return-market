@@ -99,7 +99,9 @@ Raw flow captures contain authenticated app traffic and must remain local. The r
 
 The preferred path for return offers is now to let the real Coupang app create its normal product request, then parse only the successful `2333` response offline. Do not copy or replay app authentication headers/signatures.
 
-First build a small exact-vendor queue from the historical catalog:
+### 1. Build an exact-vendor queue
+
+Start with a small batch:
 
 ```powershell
 npm run stock:app-queue -- --group iphone --limit 20
@@ -113,10 +115,61 @@ npm run stock:app-queue -- --group macbook --limit 20
 npm run stock:app-queue -- --group all --all
 ```
 
-After those queue items have been opened in the real app and the mitmproxy flows have been exported, join one or more capture batches back to the queue:
+### 2. Start an automatically saved mitmproxy capture
+
+The capture launcher uses the same default ports used during validation and streams flows to a local file as they finish:
 
 ```powershell
-npm run stock:parse-flow -- batch1.zip batch2.zip --queue coupang-app-queue-iphone.json --output stock-latest-iphone.json
+npm run stock:capture -- -Output coupang-iphone-batch.flows
+```
+
+Defaults:
+
+```text
+proxy = 0.0.0.0:8082
+web UI = http://127.0.0.1:8083
+```
+
+The iPhone Wi-Fi proxy still points to the PC address on port `8082`. `*.flows` files can contain authenticated app traffic, so keep them local and never commit/share them.
+
+### 3. Optional: drive the jailbroken iPhone over SSH
+
+`scripts/run-coupang-app-queue.ps1` can open queue URLs on a jailbroken iPhone through its normal SpringBoard URL opener. It expects SSH access and the `uiopen` command on the phone. It does not receive, extract, or save Coupang credentials/signatures.
+
+Test one item first:
+
+```powershell
+npm run stock:app-run -- -Queue coupang-app-queue-iphone.json -HostName PHONE_IP -Limit 1
+```
+
+If that opens the correct item in the Coupang app and mitmweb shows a successful `2333` request, run the rest of the small batch:
+
+```powershell
+npm run stock:app-run -- -Queue coupang-app-queue-iphone.json -HostName PHONE_IP -Limit 20 -DelaySeconds 5
+```
+
+The runner defaults to SSH user `mobile`, port `22`, a 20-item limit, and a 5-second delay. It refuses delays below 3 seconds, and a full queue (`-All`) requires at least 5 seconds between opens. SSH authentication is handled by the normal `ssh.exe`; the script does not store a password.
+
+Dry-run without touching the phone:
+
+```powershell
+npm run stock:app-run -- -Queue coupang-app-queue-iphone.json -HostName PHONE_IP -Limit 3 -WhatIf
+```
+
+If `uiopen` is not installed on the jailbreak, the script stops before opening any queue item.
+
+### 4. Build stock-latest from one or more batches
+
+Stop/save the capture when the batch is complete. Then join the capture back to the exact queue:
+
+```powershell
+npm run stock:parse-flow -- coupang-iphone-batch.flows --queue coupang-app-queue-iphone.json --output stock-latest-iphone.json
+```
+
+Multiple capture batches can be merged in one command:
+
+```powershell
+npm run stock:parse-flow -- batch1.flows batch2.flows batch3.zip --queue coupang-app-queue-iphone.json --output stock-latest-iphone.json
 ```
 
 The generated stock file is compatible with the existing `available` / `sold_out` / `unknown` model. Only an observed exact `vendorItemId` is considered complete. A queue item not present in the capture remains:
@@ -126,9 +179,7 @@ status = unknown
 reason = not_observed
 ```
 
-This makes interrupted or partial phone scans resumable without treating missing traffic as sold out.
-
-For large catalogs, use small batches and a reasonable delay between app opens rather than driving thousands of product-detail loads at once.
+This makes interrupted or partial phone scans resumable without treating missing traffic as sold out. For large catalogs, keep using modest batches and a reasonable delay rather than driving thousands of product-detail loads at once.
 
 ## GitHub Actions: Windows self-hosted runner
 
