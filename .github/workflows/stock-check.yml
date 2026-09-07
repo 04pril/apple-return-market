@@ -48,15 +48,15 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        shell: pwsh
+        shell: powershell
         run: npm install --no-audit --no-fund
 
       - name: Install Chromium
-        shell: pwsh
+        shell: powershell
         run: npx playwright install chromium
 
       - name: Validate inputs and scan
-        shell: pwsh
+        shell: powershell
         env:
           INPUT_LIMIT: ${{ inputs.limit }}
           INPUT_CONCURRENCY: ${{ inputs.concurrency }}
